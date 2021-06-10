@@ -5,7 +5,7 @@ local http_server = require("http.server")
 local json = require("json")
 local log = require("log")
 
-local httpd = http_server.new("127.0.0.1", 8080, {
+local httpd = http_server.new("0.0.0.0", 8080, {
     log_requests = true,
     log_errors = true
 })
@@ -32,14 +32,14 @@ end)
 
 
 function response_error(req, description, code)
-    local res_err = req:render({json = { error = description}})
+    local res_err = req:render({json = { error = description }})
     res_err.status = code
     return res_err
 end
 
 
 function response_success(req, description, code)
-    local res_succes = req:render({json = {status = description}})
+    local res_succes = req:render({json = { status = description }})
     res_succes.status = code
     return res_succes
 end
