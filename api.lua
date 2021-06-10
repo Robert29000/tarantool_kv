@@ -31,16 +31,32 @@ box.once("initialize", function()
 end)
 
 
+function response_error(req, description, code)
+    local res_err = req:render({json = { error = description}})
+    res_err.status = code
+    return res_err
+end
+
+
+function response_success(req, description, code)
+    local res_succes = req:render({json = {status = description}})
+    res_succes.status = code
+    return res_succes
+end
+
+
 function get_value(req)
     local key = req:stash("key")
     local value = box.space.kv_storage:select(key)
+
     if next(value) == nil then
-        local res_err = req:render({json = { error = "Not found"}})
-        res_err.status = 404
-        return res_err
-    end 
+        log.error("Key doesn't exist %s", key)
+        return response_error(req, "Not found", 404)
+    end
+
     local res_success = req:render({json = { value = value[1]['value']}})
     res_success.status = 200
+    log.info("Key found %s", key)
     return res_success
 end
 
@@ -52,23 +68,20 @@ function insert_value(req)
 
     if json_data == nil or json_data.key == nil or type(json_data.key) ~= 'string' 
                                         or json_data.value == nil or not decode_status then
-        local res_error = req:render({json = { error = "Bad request"}})
-        res_error.status = 400
-        return res_error
+        log.error("Invalid body %s %s", json_data.key, json_data.value)
+        return response_error(req, "Bad request", 400)
     end
     local insert_status = pcall(function()
         box.space.kv_storage:insert{json_data.key, json_data.value}
     end)
 
     if not insert_status then
-        local res_error = req:render({json = { error = "Conflict"}})
-        res_error.status = 409
-        return res_error
+        log.error("Key already exists %s", json_data.key)
+        return response_error(req, "Conflict", 409)
     end
 
-    local res_success = req:render({json = { status = "Created"}})
-    res_success.status = 201
-    return res_success
+    log.info("Key created %s", json_data.key)
+    return response_success(req, "Created", 201)
 end
 
 
@@ -79,20 +92,18 @@ function update_value(req)
     end)
 
     if json_data == nil or json_data.value == nil or not status then
-        local res_error = req:render({json = { error = "Bad request"}})
-        res_error.status = 400
-        return res_error
+        log.error("Invalid body %s %s", key, json_data.value)
+        return response_error(req, "Bad request", 400) 
     end
 
     local res = box.space.kv_storage:update({key}, {{"=", 2, json_data.value}})
     if res == nil then
-        local res_error = req:render({json = { error = "Not found"}})
-        res_error.status = 404
-        return res_error
+        log.error("Key doesn't exist %s", key)
+        return response_error(req, "Not found", 404)
     end
-    local res_success = req:render({json = { status = "Updated"}})
-    res_success.status = 200
-    return res_success
+
+    log.info("Key updated %s", key)
+    return response_success(req, "Updated", 200)
 end
 
 
@@ -101,14 +112,12 @@ function delete_value(req)
     
     local res = box.space.kv_storage:delete{key}
     if res == nil then 
-        local res_error = req:render({json = { error = "Not found"}})
-        res_error.status = 404
-        return res_error
+        log.error("Key doesn't exist %s", key)
+        return response_error(req, "Not found", 404)
     end
 
-    local res_success = req:render({json = { status = "Deleted"}})
-    res_success.status = 200
-    return res_success
+    log.info("Key deleted %s", key)
+    return response_success(req, "Deleted", 200)
 end
 
 
